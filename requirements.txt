@@ -1,0 +1,4 @@
+torch == 0.4
+torchvision == 0.2.0
+numpy
+tensorflow-gpu == 1.9
