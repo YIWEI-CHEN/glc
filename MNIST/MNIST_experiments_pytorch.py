@@ -62,6 +62,10 @@ def flip_labels_C(corruption_prob):
         C[i][np.random.choice(row_indices[row_indices != i])] = corruption_prob
     return C
 
+def get_accuracy(pred, target):
+    correct = pred.eq(target.data).sum()
+    return correct.item() / len(mnist.test.labels)
+
 # //////////////////////// defining model ////////////////////////
 reg_str = 1e-6
 num_epochs = 10
@@ -144,9 +148,9 @@ def train_and_test(method='ours', corruption_level=0, gold_fraction=0.5, get_C=u
 
     output = net(data)
     pred = output.data.max(1)[1]
-    correct = pred.eq(target.data).sum()
+    # correct = pred.eq(target.data).sum()
 
-    baseline_acc = correct / len(mnist.test.labels)
+    baseline_acc = get_accuracy(pred, target)
 
 
     # //////////////////////// estimate C ////////////////////////
@@ -187,8 +191,8 @@ def train_and_test(method='ours', corruption_level=0, gold_fraction=0.5, get_C=u
         C_hat = C_hat * 0.99 + np.full_like(C_hat, 1/num_classes) * 0.01
 
 
-    print('True C:', np.round(C, decimals=3))
-    print('C_hat:', np.round(C_hat, decimals=3))
+    # print('True C:\n', np.round(C, decimals=3))
+    # print('C_hat:\n', np.round(C_hat, decimals=3))
 
     C_hat = V(torch.from_numpy(C_hat.astype(np.float32))).cuda()
 
@@ -280,9 +284,10 @@ def train_and_test(method='ours', corruption_level=0, gold_fraction=0.5, get_C=u
 
     output = net(data)
     pred = output.data.max(1)[1]
-    correct = pred.eq(target.data).sum()
+    # correct = pred.eq(target.data).sum()
 
-    test_acc = correct / len(mnist.test.labels)
+    # test_acc = correct / len(mnist.test.labels)
+    test_acc = get_accuracy(pred, target)
 
     # nudge garbage collector
     del dataset; del gold
