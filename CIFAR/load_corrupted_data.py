@@ -102,9 +102,10 @@ class CIFAR10(data.Dataset):
                 if shuffle_indices is None:
                     indices = np.arange(50000)
                     shuffled_train_labels = self.train_labels
-                    while len(set(shuffled_train_labels[:int(gold_fraction * 50000)])) < num_classes:
-                        np.random.shuffle(indices)
-                        shuffled_train_labels = list(np.array(self.train_labels)[indices])
+                    if gold_fraction > 0:
+                        while len(set(shuffled_train_labels[:int(gold_fraction * 50000)])) < num_classes:
+                            np.random.shuffle(indices)
+                            shuffled_train_labels = list(np.array(self.train_labels)[indices])
                 else:
                     indices = shuffle_indices
 

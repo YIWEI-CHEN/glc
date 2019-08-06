@@ -28,7 +28,7 @@ parser.add_argument('dataset', type=str, choices=['cifar10', 'cifar100'],
 # Optimization options
 parser.add_argument('--nosgdr', default=False, action='store_true', help='Turn off SGDR.')
 parser.add_argument('--epochs', '-e', type=int, default=75, help='Number of epochs to train.')
-parser.add_argument('--batch_size', '-b', type=int, default=128, help='Batch size.')
+parser.add_argument('--batch_size', '-b', type=int, default=64, help='Batch size.')
 parser.add_argument('--gold_fraction', '-gf', type=float, default=0.1, help='What fraction of the data should be trusted?')
 parser.add_argument('--corruption_prob', '-cprob', type=float, default=0.3, help='The label corruption probability.')
 parser.add_argument('--corruption_type', '-ctype', type=str, default='unif', help='Type of corruption ("unif" or "flip").')
@@ -36,7 +36,7 @@ parser.add_argument('--adjust', '-a', action='store_true', help='Adjust the C_ha
 parser.add_argument('--learning_rate', '-lr', type=float, default=0.1, help='The initial learning rate.')
 parser.add_argument('--momentum', '-m', type=float, default=0.9, help='Momentum.')
 parser.add_argument('--decay', '-d', type=float, default=0.0005, help='Weight decay (L2 penalty).')
-parser.add_argument('--test_bs', type=int, default=128)
+parser.add_argument('--test_bs', type=int, default=64)
 parser.add_argument('--schedule', type=int, nargs='+', default=[150, 225],
                     help='Decrease learning rate at these epochs. Use when SGDR is off.')
 parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
@@ -54,7 +54,10 @@ parser.add_argument('--ngpu', type=int, default=1, help='0 = CPU.')
 parser.add_argument('--prefetch', type=int, default=2, help='Pre-fetching threads.')
 # i/o
 parser.add_argument('--log', type=str, default='./', help='Log folder.')
+# GPU
+parser.add_argument('--gpu', type=int, default=3, choices=[0, 1, 2, 3, 4, 5, 6, 7])
 args = parser.parse_args()
+os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
 
 # Init logger
 if not os.path.isdir(args.log):
@@ -211,7 +214,7 @@ def train_phase1():
         optimizer.step()
 
         # exponential moving average
-        loss_avg = loss_avg * 0.8 + loss.data[0] * 0.2
+        loss_avg = loss_avg * 0.8 + loss.item() * 0.2
 
         if args.nosgdr is False:    # Use a cyclic learning rate
             dt = math.pi/float(args.epochs)
@@ -245,15 +248,16 @@ def test():
         correct += pred.eq(target.data).sum()
 
         # test loss average
-        loss_avg += loss.data[0]
+        loss_avg += loss.item()
 
     state['test_loss'] = loss_avg / len(test_loader)
-    state['test_accuracy'] = correct / len(test_loader.dataset)
+    state['test_accuracy'] = correct.item() / len(test_loader.dataset)
 
 
 # Main loop
 for epoch in range(start_epoch, args.epochs):
-    continue  # we skip this training step
+    if args.gold_fraction != 0:
+        continue  # we skip this training step
 
     # if epoch < 150:
     #     state['learning_rate'] = state['init_learning_rate']
@@ -390,7 +394,7 @@ def train_phase2(C_hat_transpose):
         optimizer.step()
 
         # exponential moving average
-        loss_avg = loss_avg * 0.8 + float(loss.cpu().data.numpy()[0]) * 0.2
+        loss_avg = loss_avg * 0.8 + float(loss.cpu().data.numpy()) * 0.2
 
         if args.nosgdr is False:    # Use a cyclic learning rate
             dt = math.pi/float(args.epochs)
@@ -408,6 +412,8 @@ def train_phase2(C_hat_transpose):
 
 # Main loop
 for epoch in range(0, args.epochs):
+    if args.gold_fraction == 0:
+        continue
     state['epoch'] = epoch
 
     begin_epoch = time.time()
